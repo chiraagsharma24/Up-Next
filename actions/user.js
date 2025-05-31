@@ -13,6 +13,7 @@ export async function updateUser(data) {
     where: { clerkUserId: userId },
   });
 
+
   if (!user) throw new Error("User not found");
 
   try {
@@ -66,6 +67,9 @@ export async function updateUser(data) {
     throw new Error("Failed to update profile");
   }
 }
+
+
+
 
 export async function getUserOnboardingStatus() {
   const { userId } = await auth();
