@@ -18,15 +18,147 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Profile fields
+  // Enhanced Profile fields
   bio           String?
   experience    Int?      // Years of experience
-  
-  // Relations
-  skills        String[]  // Array of skills
+  education     Education[]
+  skills        Skill[]
   assessments   Assessment[]
   resume        Resume?
   coverLetter   CoverLetter[]
+  jobApplications JobApplication[]
+  interviewSessions InterviewSession[]
+  careerGoals   CareerGoal[]
+  linkedinProfile LinkedInProfile?
+  learningPath  LearningPath?
+}
+
+model Education {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  institution String
+  degree      String
+  field       String
+  startDate   DateTime
+  endDate     DateTime?
+  gpa         Float?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Skill {
+  id          String    @id @default(cuid())
+  name        String
+  level       Int       // 1-5 scale
+  category    String    // Technical, Soft, Domain-specific
+  verified    Boolean   @default(false)
+  users       User[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([name])
+}
+
+model JobApplication {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  company       String
+  position      String
+  status        String    // Applied, Interview, Offer, Rejected
+  source        String    // LinkedIn, Company Website, etc.
+  appliedDate   DateTime
+  jobUrl        String?
+  description   String?   @db.Text
+  notes         String?   @db.Text
+  interviews    Interview[]
+  nextAction    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Interview {
+  id            String    @id @default(cuid())
+  jobApplicationId String
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id])
+  type          String    // Phone, Technical, Behavioral
+  scheduledAt   DateTime
+  duration      Int       // in minutes
+  interviewer   String?
+  notes         String?   @db.Text
+  feedback      String?   @db.Text
+  status        String    // Scheduled, Completed, Cancelled
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([jobApplicationId])
+}
+
+model InterviewSession {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  type          String    // Mock, Real
+  category      String    // Technical, Behavioral
+  questions     Json[]    // Array of {question, answer, feedback}
+  score         Float?
+  feedback      String?   @db.Text
+  recordingUrl  String?
+  transcript    String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model CareerGoal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  title         String
+  description   String    @db.Text
+  targetDate    DateTime?
+  status        String    // Active, Completed, Abandoned
+  milestones    Json[]    // Array of {title, description, completed}
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model LinkedInProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  profileUrl    String
+  headline      String?
+  summary       String?   @db.Text
+  connectionCount Int?
+  lastSynced    DateTime?
+  optimizationScore Float?
+  suggestions   Json[]    // Array of optimization suggestions
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model LearningPath {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  targetRole    String
+  currentLevel  Int       // 1-5 scale
+  targetLevel   Int       // 1-5 scale
+  resources     Json[]    // Array of {type, title, url, completed}
+  estimatedCompletion DateTime?
+  progress      Float     // 0-100
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Assessment {

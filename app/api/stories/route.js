@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Sample data for the API
 const sampleStories = [
@@ -176,6 +179,34 @@ const filterStories = (stories, search, collegeTier, experience) => {
   });
 };
 
+// Helper: Fetch user profile
+async function getUserProfile(userId) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    include: { skills: true, education: true },
+  });
+}
+
+// Helper: Generate personalized success stories using Gemini
+async function generateSuccessStories(userProfile, targetRole, industry) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + apiKey;
+  const prompt = `You are an expert storyteller. Generate personalized success stories, case studies, and insights for the role of ${targetRole} in the ${industry} industry. Use this user profile: ${JSON.stringify(userProfile)}. Return as JSON: {stories: string[], insights: string[], feedback: string}.`;
+  const body = { contents: [{ parts: [{ text: prompt }] }] };
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  try {
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return JSON.parse(text);
+  } catch (e) {
+    return { error: 'Failed to parse Gemini response', raw: data };
+  }
+}
+
 export async function GET(request) {
   try {
     // Get query parameters
@@ -209,5 +240,44 @@ export async function GET(request) {
       { error: "Failed to fetch stories" },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(req) {
+  try {
+    const { userId, targetRole, industry } = await req.json();
+    if (!userId || !targetRole || !industry) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    // 1. Fetch user profile
+    const userProfile = await getUserProfile(userId);
+    if (!userProfile) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    // 2. Generate personalized success stories
+    const successStories = await generateSuccessStories(userProfile, targetRole, industry);
+    // 3. Store stories data
+    const storedStory = await prisma.story.create({
+      data: {
+        userId,
+        targetRole,
+        industry,
+        stories: successStories.stories,
+        insights: successStories.insights,
+        feedback: successStories.feedback,
+        status: 'draft',
+      },
+    });
+    // 4. Return structured response
+    return NextResponse.json({
+      userId,
+      stories: {
+        stories: successStories.stories,
+        insights: successStories.insights,
+        feedback: successStories.feedback,
+      },
+    });
+  } catch (err) {
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
   }
 } 
